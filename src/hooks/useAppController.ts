@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, deleteShot, clearAllShots } from '../services/db';
@@ -13,7 +12,7 @@ export const useAppController = () => {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showAbout, setShowAbout] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  
+
   // --- ENGINE & SETTINGS STATE ---
   const [engineMode, setEngineMode] = useState<'expert' | 'manual'>('expert');
   const [settingsManagerType, setSettingsManagerType] = useState<'machine' | 'bean' | 'tamper' | 'grinder' | 'basket' | 'accessory' | 'water' | null>(null);
@@ -31,22 +30,18 @@ export const useAppController = () => {
   // --- DATA QUERIES (Dexie) ---
   const shots = useLiveQuery(() => db.shots.orderBy('date').reverse().toArray()) || [];
   const savedMachines = useLiveQuery(() => db.machines.orderBy('name').toArray()) || [];
-  const savedBeans = useLiveQuery(() => db.beans.orderBy('name').toArray()) || [];
-  
+  const savedBeans = useLiveQuery(() => db.beans.orderBy('id').reverse().toArray()) || [];
   const tampersSetting = useLiveQuery(() => db.settings.get('tampers_list'));
   const tampersList = (tampersSetting?.value as ListItem[]) || [];
-
   const waterSetting = useLiveQuery(() => db.settings.get('water_list'));
   const waterList = (waterSetting?.value as ListItem[]) || [];
-
   const accessoriesSetting = useLiveQuery(() => db.settings.get('accessories_list'));
   const accessoriesList = (accessoriesSetting?.value as ListItem[]) || [];
 
   // --- CUSTOM HOOKS INTEGRATION ---
   const theme = useTheme();
-  // Editor Hook logic
   const editorLogic = useShotEditor(savedMachines, savedBeans, tampersList, engineMode);
-  
+
   // Store actions
   const setTags = useEditorStore(s => s.setTags);
   const machineName = useEditorStore(s => s.machineName);
@@ -54,47 +49,48 @@ export const useAppController = () => {
 
   // --- CLOCK ---
   useEffect(() => {
-      const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-      return () => clearInterval(timer);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   // --- PWA INSTALL ---
   useEffect(() => {
-      const handleInstallPrompt = (e: Event) => {
-          e.preventDefault();
-          setInstallPrompt(e as BeforeInstallPromptEvent);
-          console.log("PWA Install Prompt Captured");
-      };
-      window.addEventListener('beforeinstallprompt', handleInstallPrompt);
-      return () => { window.removeEventListener('beforeinstallprompt', handleInstallPrompt); };
+    const handleInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+      console.log("PWA Install Prompt Captured");
+    };
+    window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+    return () => { window.removeEventListener('beforeinstallprompt', handleInstallPrompt); };
   }, []);
 
   const handleInstallApp = async () => {
-      if (!installPrompt) return;
-      try {
-          await installPrompt.prompt();
-          await installPrompt.userChoice;
-          setInstallPrompt(null);
-      } catch (e) { console.error("Install prompt failed", e); }
+    if (!installPrompt) return;
+    try {
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+      setInstallPrompt(null);
+    } catch (e) {
+      console.error("Install prompt failed", e);
+    }
   };
 
   // --- HISTORY API ---
   useEffect(() => {
     window.history.replaceState({ page: 'home' }, '', '');
     const handlePopState = () => {
-        let handled = false;
-        if (selectedShot) { setSelectedShot(null); handled = true; }
-        else if (theme.showThemeEditor) { theme.setShowThemeEditor(false); handled = true; }
-        else if (theme.showThemeSelector) { theme.setShowThemeSelector(false); handled = true; }
-        else if (showAnalysis) { setShowAnalysis(false); handled = true; }
-        else if (showAbout) { setShowAbout(false); handled = true; }
-        else if (fullScreenImage) { setFullScreenImage(null); handled = true; }
-        else if (activeTagCategory) { setActiveTagCategory(null); handled = true; }
-        else if (isMenuOpen) { setIsMenuOpen(false); handled = true; }
-        else if (activeTab === 'settings' && settingsManagerType) { setSettingsManagerType(null); handled = true; }
-        else if (activeTab !== 'new') { setActiveTab('new'); handled = true; }
-
-        if (handled) { window.history.pushState({ page: 'app_active' }, '', ''); }
+      let handled = false;
+      if (selectedShot) { setSelectedShot(null); handled = true; }
+      else if (theme.showThemeEditor) { theme.setShowThemeEditor(false); handled = true; }
+      else if (theme.showThemeSelector) { theme.setShowThemeSelector(false); handled = true; }
+      else if (showAnalysis) { setShowAnalysis(false); handled = true; }
+      else if (showAbout) { setShowAbout(false); handled = true; }
+      else if (fullScreenImage) { setFullScreenImage(null); handled = true; }
+      else if (activeTagCategory) { setActiveTagCategory(null); handled = true; }
+      else if (isMenuOpen) { setIsMenuOpen(false); handled = true; }
+      else if (activeTab === 'settings' && settingsManagerType) { setSettingsManagerType(null); handled = true; }
+      else if (activeTab !== 'new') { setActiveTab('new'); handled = true; }
+      if (handled) { window.history.pushState({ page: 'app_active' }, '', ''); }
     };
     window.addEventListener('popstate', handlePopState);
     return () => { window.removeEventListener('popstate', handlePopState); };
@@ -103,7 +99,6 @@ export const useAppController = () => {
   const pushHistoryState = () => { window.history.pushState({ page: 'nested' }, '', ''); };
 
   // --- ACTIONS ---
-
   const handleToggleTag = useCallback((tag: string) => {
     if (!activeTagCategory) return;
     setTags(prev => {
@@ -114,11 +109,14 @@ export const useAppController = () => {
   }, [activeTagCategory, setTags]);
 
   const handleDeleteShot = useCallback(async (id: string) => {
-    if (confirm("Sigur ștergi această înregistrare?")) {
-        try {
-            await deleteShot(id);
-            if (selectedShot?.id === id) setSelectedShot(null);
-        } catch (e) { console.error("Delete failed", e); alert("Eroare la ștergerea înregistrării."); }
+    if (confirm("Sigur stergi aceasta inregistrare?")) {
+      try {
+        await deleteShot(id);
+        if (selectedShot?.id === id) setSelectedShot(null);
+      } catch (e) {
+        console.error("Delete failed", e);
+        alert("Eroare la stergerea inregistrarii.");
+      }
     }
   }, [selectedShot]);
 
@@ -128,50 +126,52 @@ export const useAppController = () => {
   }, [shots]);
 
   const handleShotUpdated = useCallback((updatedShot: ShotData) => {
-      setSelectedShot(updatedShot);
+    setSelectedShot(updatedShot);
   }, []);
 
   const clearAllData = useCallback(async () => {
-    try { await clearAllShots(); setSelectedShot(null); } catch (e) { console.error("Clear data failed", e); }
+    try {
+      await clearAllShots();
+      setSelectedShot(null);
+    } catch (e) {
+      console.error("Clear data failed", e);
+    }
   }, []);
 
   const handleSaveWrapper = useCallback((extraData?: Partial<ShotData>) => {
-      editorLogic.handleSaveAndAnalyze(extraData, (savedShot) => {
-          setSelectedShot(savedShot);
-          pushHistoryState();
-      });
+    editorLogic.handleSaveAndAnalyze(extraData, (savedShot) => {
+      setSelectedShot(savedShot);
+      pushHistoryState();
+    });
   }, [editorLogic]);
 
-  const handleTabChange = useCallback((tab: 'new' | 'history' | 'maintenance' | 'settings') => { 
-      if (tab === 'new') editorLogic.resetForm(false);
-      setSelectedShot(null);
-      setActiveTab(tab); 
-      if (tab !== 'new') pushHistoryState();
-      if (tab === 'history') {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+  const handleTabChange = useCallback((tab: 'new' | 'history' | 'maintenance' | 'settings') => {
+    if (tab === 'new') editorLogic.resetForm(false);
+    setSelectedShot(null);
+    setActiveTab(tab);
+    if (tab !== 'new') pushHistoryState();
+    if (tab === 'history') { window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }, [editorLogic]);
 
   const handleNavigateToSection = useCallback((tab: 'new' | 'history' | 'maintenance' | 'settings', sectionId?: string) => {
-      setIsMenuOpen(false);
-      if (activeTab !== tab) handleTabChange(tab);
-      if (sectionId) {
-          setTimeout(() => {
-              const el = document.getElementById(sectionId);
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 150);
-      }
+    setIsMenuOpen(false);
+    if (activeTab !== tab) handleTabChange(tab);
+    if (sectionId) {
+      setTimeout(() => {
+        const el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    }
   }, [activeTab, handleTabChange]);
 
   const openManager = (type: 'machine' | 'bean' | 'tamper' | 'water' | 'basket') => {
-      setSettingsManagerType(type);
-      setInitialManagerView('form');
-      setActiveTab('settings');
-      pushHistoryState();
+    setSettingsManagerType(type);
+    setInitialManagerView('form');
+    setActiveTab('settings');
+    pushHistoryState();
   };
 
   return {
-    // State
     activeTab, setActiveTab,
     isMenuOpen, setIsMenuOpen,
     showAbout, setShowAbout,
@@ -184,8 +184,6 @@ export const useAppController = () => {
     fullScreenImage, setFullScreenImage,
     activeTagCategory, setActiveTagCategory,
     installPrompt,
-    
-    // Data
     shots,
     savedMachines,
     savedBeans,
@@ -194,12 +192,8 @@ export const useAppController = () => {
     accessoriesList,
     machineName,
     beanName,
-
-    // Sub-Logics
     theme,
     editorLogic,
-
-    // Actions
     handleInstallApp,
     pushHistoryState,
     handleToggleTag,
